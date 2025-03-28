@@ -1,35 +1,24 @@
-import json
 import streamlit as st
 import platform
-import os
 import logging
-
 from openai import OpenAI
 from tenacity import retry, wait_random_exponential, stop_after_attempt
-from hwp_controller import HwpController  # HWP 문서 제어 모듈
 from docx_controller import DocxController
-from io import BytesIO
+import io
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Streamlit Secrets에 저장한 OpenAI API 키를 불러와서 설정 (일관성 있는 딕셔너리 표기법 사용)
+# API 키 설정
 client = OpenAI(api_key=st.secrets["openai"]["api_key"])
-
-# 최신 GPT 모델과 OpenAI 클라이언트 설정
 GPT_MODEL = "gpt-4o"
 
-# 재시도 로직을 포함한 GPT API 호출 함수
+# GPT API 호출 함수
 @retry(wait=wait_random_exponential(multiplier=1, max=40), stop=stop_after_attempt(3))
-def chat_completion_request(messages, tools=None, tool_choice=None, model=GPT_MODEL):
+def chat_completion_request(messages, model=GPT_MODEL):
     try:
-        response = client.chat.completions.create(
-            model=model,
-            messages=messages,
-            tools=tools,
-            tool_choice=tool_choice,
-        )
+        response = client.chat.completions.create(model=model, messages=messages)
         return response
     except Exception as e:
         logger.error("ChatCompletion 응답 생성 실패", exc_info=True)
@@ -37,95 +26,62 @@ def chat_completion_request(messages, tools=None, tool_choice=None, model=GPT_MO
         st.error(f"Exception: {e}")
         raise e
 
-# 대화 내역을 예쁘게 출력하는 함수 (Streamlit HTML 활용)
+# 대화 내역 출력 함수
 def render_chat_history(chat_history):
     for msg in chat_history:
-        if msg["role"] == "user":
-            st.markdown(
-                f"""<div style='text-align: right; background-color: #DCF8C6; color: black; padding: 10px; 
-                border-radius: 10px; margin: 5px;'>{msg["content"]}</div>""",
-                unsafe_allow_html=True,
-            )
-        elif msg["role"] == "assistant":
-            st.markdown(
-                f"""<div style='text-align: left; background-color: #FFFFFF; color: black; padding: 10px; 
-                border-radius: 10px; margin: 5px;'>{msg["content"]}</div>""",
-                unsafe_allow_html=True,
-            )
-        elif msg["role"] == "system":
-            st.markdown(
-                f"""<div style='text-align: center; color: red; margin: 5px;'>{msg["content"]}</div>""",
-                unsafe_allow_html=True,
-            )
+        color, align = ('#DCF8C6', 'right') if msg["role"] == "user" else ('#FFFFFF', 'left')
+        st.markdown(
+            f"<div style='text-align: {align}; background-color: {color}; color: black; padding: 10px; border-radius: 10px; margin: 5px;'>{msg['content']}</div>",
+            unsafe_allow_html=True,
+        )
 
-
-# OS 환경 체크: HWP 기능은 Windows에서만 동작
-is_windows = platform.system() == "Windows"
-if not is_windows:
-    st.warning("HWP 관련 기능은 Windows 환경에서만 작동합니다.")
-
-# Streamlit 초기 설정: session_state에 대화 내역 초기화
+# 세션 상태 초기화
 if "chat_history" not in st.session_state:
-    st.session_state.chat_history = [
-        {"role": "system", "content": "당신은 도움이 되는 챗봇입니다."}
-    ]
+    st.session_state.chat_history = [{"role": "system", "content": "당신은 도움이 되는 챗봇입니다."}]
 
-st.title("최신 GPT API & HWP 저장 기능 챗봇")
-
-# 사용자 입력 (빈 문자열 및 공백만 있는 경우 필터링)
-def send_message():
-    user_message = st.session_state.user_input.strip()
-    if user_message:
-        st.session_state.chat_history.append({"role": "user", "content": user_message})
+# 사용자 입력 처리 함수 (엔터 입력 시 호출)
+def submit():
+    user_input = st.session_state.user_input.strip()
+    if user_input:
+        st.session_state.chat_history.append({"role": "user", "content": user_input})
         try:
             response = chat_completion_request(st.session_state.chat_history)
-            resp_message = response.choices[0].message
-            assistant_content = resp_message.content or ""
-            st.session_state.chat_history.append({
-                "role": "assistant",
-                "content": assistant_content
-            })
-        except Exception as e:
-            st.session_state.chat_history.append({
-                "role": "assistant",
-                "content": "응답 생성 중 오류가 발생했습니다."
-            })
+            assistant_content = response.choices[0].message.content or ""
+            st.session_state.chat_history.append({"role": "assistant", "content": assistant_content})
+        except:
+            st.session_state.chat_history.append({"role": "assistant", "content": "오류가 발생했습니다."})
+    st.session_state.user_input = ""  # 입력 후 초기화
 
-# 입력창
-st.text_input("메시지를 입력하세요:", key="user_input", on_change=send_message)
+st.title("최신 GPT 챗봇 & Word 저장")
 
-# 대화 내역 출력
+# 사용자 입력 (엔터키로 입력 가능)
+st.text_input("메시지를 입력하고 엔터를 누르세요.", key="user_input", on_change=submit)
+
+# 대화 내역 렌더링
 render_chat_history(st.session_state.chat_history)
-
 
 # 대화 초기화 버튼
 if st.button("대화 초기화"):
-    st.session_state.chat_history = [
-        {"role": "system", "content": "당신은 도움이 되는 챗봇입니다."}
-    ]
+    st.session_state.chat_history = [{"role": "system", "content": "당신은 도움이 되는 챗봇입니다."}]
     st.experimental_rerun()
 
-if st.button("Word 파일로 저장"):
-    final_answer = "\n\n".join(
-        [msg["content"] for msg in st.session_state.chat_history if msg["role"] == "assistant"]
-    )
+# Word 파일 생성 및 다운로드 버튼
+def generate_docx():
     docx = DocxController()
-
-    # 제목 및 소제목 추가
     docx.add_heading("최종 GPT 답변", level=1)
     docx.add_heading("내용", level=2)
-
-    # 본문 추가
+    final_answer = "\n\n".join(msg["content"] for msg in st.session_state.chat_history if msg["role"] == "assistant")
     docx.add_paragraph(final_answer, font_size=12)
+    docx_io = io.BytesIO()
+    docx.document.save(docx_io)
+    docx_io.seek(0)
+    return docx_io.getvalue()
 
-    # 메모리에 임시 저장 후 다운로드 링크 제공
-    buffer = BytesIO()
-    docx.document.save(buffer)
-    buffer.seek(0)
+docx_data = generate_docx()
+st.download_button(
+    label="Word 파일로 저장",
+    data=docx_data,
+    file_name="final_answer.docx",
+    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+)
 
-    st.download_button(
-        label="Word 파일 다운로드",
-        data=buffer,
-        file_name="final_answer.docx",
-        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    )
