@@ -109,6 +109,7 @@ if not st.session_state.logged_in:
             st.success("로그인 성공")
         else:
             st.error("학번 또는 비밀번호가 틀렸습니다.")
+            
 else:
     # 사용 제한 횟수 체크
     if st.session_state.usage_count >= st.session_state.usage_limit:

@@ -66,6 +66,7 @@ class HwpController:
             return False
 
 
+
     def create_new_document(self):
         """
         새 문서를 생성합니다.
