@@ -13,7 +13,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Streamlit Secrets에 저장한 OpenAI API 키를 불러와서 설정 (일관성 있는 딕셔너리 표기법 사용)
-client = OpenAI(api_key=st.secrets["openai_api_key"])
+client = OpenAI(api_key=st.secrets["openai"]["api_key"])
+
 # 최신 GPT 모델과 OpenAI 클라이언트 설정
 GPT_MODEL = "gpt-4o"
 
