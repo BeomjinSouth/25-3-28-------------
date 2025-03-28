@@ -2,6 +2,8 @@ from docx import Document
 from docx.shared import Pt
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 
+
+
 class DocxController:
     def __init__(self):
         self.document = Document()
