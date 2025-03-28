@@ -90,7 +90,7 @@ st.download_button(
 
 
 
-sheet = SheetController('credentials.json', '내구글스프레드시트명')
+sheet = SheetController('2025 03 28 GPT sheets docs')
 
 # 로그인 처리
 if 'logged_in' not in st.session_state:
