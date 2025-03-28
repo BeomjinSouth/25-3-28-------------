@@ -1,0 +1,5 @@
+streamlit
+openai
+tenacity
+termcolor
+pywin32
