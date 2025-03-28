@@ -90,11 +90,8 @@ st.download_button(
 
 
 
-<<<<<<< HEAD
 sheet = SheetController('2025 03 28 GPT sheets docs')
-=======
-sheet = SheetController('credentials.json', '내구글스프레드시트명')
->>>>>>> 8b84bfef5cdb7e83052deed41006f5c1e13e326c
+
 
 # 로그인 처리
 if 'logged_in' not in st.session_state:
@@ -137,8 +134,4 @@ else:
             # 사용 횟수 증가 및 로그 저장
             sheet.increment_usage(st.session_state.student_id)
             sheet.log_chat(st.session_state.student_id, question, answer, datetime.now().strftime("%Y-%m-%d %H:%M"))
-<<<<<<< HEAD
             st.session_state.usage_count += 1
-=======
-            st.session_state.usage_count += 1
->>>>>>> 8b84bfef5cdb7e83052deed41006f5c1e13e326c
