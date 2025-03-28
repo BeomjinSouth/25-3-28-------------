@@ -4,3 +4,5 @@ tenacity
 termcolor
 pywin32; platform_system=="Windows"
 python-docx
+gspread
+oauth2client
