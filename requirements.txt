@@ -2,4 +2,4 @@ streamlit
 openai
 tenacity
 termcolor
-pywin32
+pywin32; platform_system=="Windows"
