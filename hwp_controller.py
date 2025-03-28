@@ -1,11 +1,19 @@
 import os
-import win32com.client
 import time
+import platform
+
+# Windows 환경에서만 win32com 임포트
+if platform.system() == "Windows":
+    import win32com.client
+else:
+    # Windows가 아닌 경우, win32com 관련 기능은 사용할 수 없음.
+    win32com = None
 
 class HwpController:
     """
     한글(HWP) 문서를 제어하기 위한 컨트롤러 클래스.
     win32com을 사용하여 한글 프로그램을 자동화합니다.
+    Windows 환경에서만 동작합니다.
     """
 
     def __init__(self):
@@ -17,18 +25,14 @@ class HwpController:
     def connect(self, visible=True, register_security_module=True):
         """
         한글 프로그램에 연결합니다.
-        
-        Args:
-            visible (bool): 한글 창을 표시할지 여부.
-            register_security_module (bool): 보안 모듈 등록 여부.
-        
-        Returns:
-            bool: 연결 성공 여부.
+        Windows가 아닌 환경에서는 기능을 사용할 수 없습니다.
         """
+        if platform.system() != "Windows":
+            raise EnvironmentError("HWP 기능은 Windows 환경에서만 사용할 수 있습니다.")
+        
         try:
             self.hwp = win32com.client.Dispatch("HWPFrame.HwpObject")
             
-            # 보안 모듈 등록 (파일 경로를 실제 환경에 맞게 수정 필요)
             if register_security_module:
                 try:
                     module_path = os.path.abspath("D:/hwp-mcp/security_module/FilePathCheckerModuleExample.dll")
