@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 client = OpenAI(api_key=st.secrets["openai_api_key"])
 # 최신 GPT 모델과 OpenAI 클라이언트 설정
 GPT_MODEL = "gpt-4o"
-client = OpenAI()
 
 # 재시도 로직을 포함한 GPT API 호출 함수
 @retry(wait=wait_random_exponential(multiplier=1, max=40), stop=stop_after_attempt(3))
