@@ -12,6 +12,7 @@ class SheetController:
         self.sheet_name = sheet_name
 
 
+
     def _connect(self):
         scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/spreadsheets']
         creds = ServiceAccountCredentials.from_json_keyfile_name(self.creds_file, scope)
