@@ -7,6 +7,7 @@ import logging
 from openai import OpenAI
 from tenacity import retry, wait_random_exponential, stop_after_attempt
 from hwp_controller import HwpController  # HWP 문서 제어 모듈
+from docx_controller import DocxController
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)
@@ -40,13 +41,13 @@ def render_chat_history(chat_history):
     for msg in chat_history:
         if msg["role"] == "user":
             st.markdown(
-                f"""<div style='text-align: right; background-color: #DCF8C6; padding: 10px; 
+                f"""<div style='text-align: right; background-color: #DCF8C6; color: black; padding: 10px; 
                 border-radius: 10px; margin: 5px;'>{msg["content"]}</div>""",
                 unsafe_allow_html=True,
             )
         elif msg["role"] == "assistant":
             st.markdown(
-                f"""<div style='text-align: left; background-color: #FFF; padding: 10px; 
+                f"""<div style='text-align: left; background-color: #FFFFFF; color: black; padding: 10px; 
                 border-radius: 10px; margin: 5px;'>{msg["content"]}</div>""",
                 unsafe_allow_html=True,
             )
@@ -55,6 +56,7 @@ def render_chat_history(chat_history):
                 f"""<div style='text-align: center; color: red; margin: 5px;'>{msg["content"]}</div>""",
                 unsafe_allow_html=True,
             )
+
 
 # OS 환경 체크: HWP 기능은 Windows에서만 동작
 is_windows = platform.system() == "Windows"
@@ -100,33 +102,27 @@ if st.button("대화 초기화"):
         {"role": "system", "content": "당신은 도움이 되는 챗봇입니다."}
     ]
     st.experimental_rerun()
+from docx_controller import DocxController
 
-# 한글 파일로 저장 버튼: 지금까지의 GPT 응답(assistant 메시지들)을 모아서 HWP 파일로 저장
-if st.button("한글 파일로 저장"):
-    if not is_windows:
-        st.error("한글 파일 저장 기능은 Windows 환경에서만 사용 가능합니다.")
+# "한글 파일로 저장" 버튼 대신 "Word 파일로 저장" 버튼으로 변경
+if st.button("Word 파일로 저장"):
+    final_answer = "\n\n".join(
+        [msg["content"] for msg in st.session_state.chat_history if msg["role"] == "assistant"]
+    )
+    docx = DocxController()
+
+    # 제목 추가
+    docx.add_heading("최종 GPT 답변", level=1)
+
+    # 소제목 추가
+    docx.add_heading("내용", level=2)
+
+    # 본문 추가
+    docx.add_paragraph(final_answer, font_size=12)
+
+    # 파일 저장
+    save_path = "final_answer.docx"
+    if docx.save(save_path):
+        st.success(f"Word 파일이 저장되었습니다: {save_path}")
     else:
-        final_answer = "\n\n".join(
-            [msg["content"] for msg in st.session_state.chat_history if msg["role"] == "assistant"]
-        )
-        hwp = HwpController()
-        if hwp.connect():
-            hwp.create_new_document()
-            # 제목 설정: 굵고 큰 글씨
-            hwp.set_font_style(font_name="맑은 고딕", font_size=20, bold=True)
-            hwp.insert_text("최종 GPT 답변")
-            hwp.insert_paragraph()
-            # 소제목 설정
-            hwp.set_font_style(font_name="맑은 고딕", font_size=16, bold=True)
-            hwp.insert_text("내용")
-            hwp.insert_paragraph()
-            # 본문 설정: 일반 글씨
-            hwp.set_font_style(font_name="맑은 고딕", font_size=12)
-            hwp.insert_text(final_answer)
-            save_path = "final_answer.hwp"
-            if hwp.save_document(save_path):
-                st.success(f"한글 파일이 저장되었습니다: {save_path}")
-            else:
-                st.error("한글 파일 저장에 실패하였습니다.")
-        else:
-            st.error("한글 프로그램 연결에 실패하였습니다.")
+        st.error("Word 파일 저장에 실패했습니다.")
