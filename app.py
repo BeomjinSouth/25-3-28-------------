@@ -8,6 +8,7 @@ from openai import OpenAI
 from tenacity import retry, wait_random_exponential, stop_after_attempt
 from hwp_controller import HwpController  # HWP 문서 제어 모듈
 from docx_controller import DocxController
+from io import BytesIO
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)
@@ -72,29 +73,30 @@ if "chat_history" not in st.session_state:
 st.title("최신 GPT API & HWP 저장 기능 챗봇")
 
 # 사용자 입력 (빈 문자열 및 공백만 있는 경우 필터링)
-user_input = st.text_input("메시지를 입력하세요:")
-if st.button("전송") and user_input.strip():
-    st.session_state.chat_history.append({"role": "user", "content": user_input.strip()})
-    try:
-        response = chat_completion_request(st.session_state.chat_history)
-        resp_message = response.choices[0].message
-        if resp_message.content is None and hasattr(resp_message, "tool_calls") and resp_message.tool_calls:
-            assistant_content = "[툴 호출 결과 처리 필요]"
-        else:
+def send_message():
+    user_message = st.session_state.user_input.strip()
+    if user_message:
+        st.session_state.chat_history.append({"role": "user", "content": user_message})
+        try:
+            response = chat_completion_request(st.session_state.chat_history)
+            resp_message = response.choices[0].message
             assistant_content = resp_message.content or ""
-        st.session_state.chat_history.append({
-            "role": "assistant",
-            "content": assistant_content
-        })
-    except Exception as e:
-        st.session_state.chat_history.append({
-            "role": "assistant",
-            "content": "응답 생성 중 오류가 발생했습니다."
-        })
+            st.session_state.chat_history.append({
+                "role": "assistant",
+                "content": assistant_content
+            })
+        except Exception as e:
+            st.session_state.chat_history.append({
+                "role": "assistant",
+                "content": "응답 생성 중 오류가 발생했습니다."
+            })
+
+# 입력창
+st.text_input("메시지를 입력하세요:", key="user_input", on_change=send_message)
 
 # 대화 내역 출력
-st.markdown("### 대화 내역")
 render_chat_history(st.session_state.chat_history)
+
 
 # 대화 초기화 버튼
 if st.button("대화 초기화"):
@@ -102,27 +104,28 @@ if st.button("대화 초기화"):
         {"role": "system", "content": "당신은 도움이 되는 챗봇입니다."}
     ]
     st.experimental_rerun()
-from docx_controller import DocxController
 
-# "한글 파일로 저장" 버튼 대신 "Word 파일로 저장" 버튼으로 변경
 if st.button("Word 파일로 저장"):
     final_answer = "\n\n".join(
         [msg["content"] for msg in st.session_state.chat_history if msg["role"] == "assistant"]
     )
     docx = DocxController()
 
-    # 제목 추가
+    # 제목 및 소제목 추가
     docx.add_heading("최종 GPT 답변", level=1)
-
-    # 소제목 추가
     docx.add_heading("내용", level=2)
 
     # 본문 추가
     docx.add_paragraph(final_answer, font_size=12)
 
-    # 파일 저장
-    save_path = "final_answer.docx"
-    if docx.save(save_path):
-        st.success(f"Word 파일이 저장되었습니다: {save_path}")
-    else:
-        st.error("Word 파일 저장에 실패했습니다.")
+    # 메모리에 임시 저장 후 다운로드 링크 제공
+    buffer = BytesIO()
+    docx.document.save(buffer)
+    buffer.seek(0)
+
+    st.download_button(
+        label="Word 파일 다운로드",
+        data=buffer,
+        file_name="final_answer.docx",
+        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
