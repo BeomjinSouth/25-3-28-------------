@@ -1,10 +1,13 @@
 import streamlit as st
 import platform
 import logging
+import io
+
+from sheet_controller import SheetController
+from datetime import datetime
 from openai import OpenAI
 from tenacity import retry, wait_random_exponential, stop_after_attempt
 from docx_controller import DocxController
-import io
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)
@@ -85,3 +88,49 @@ st.download_button(
     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 )
 
+
+
+sheet = SheetController('credentials.json', '내구글스프레드시트명')
+
+# 로그인 처리
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
+
+if not st.session_state.logged_in:
+    student_id = st.text_input("학번 입력")
+    password = st.text_input("비밀번호 입력", type='password')
+    if st.button("로그인"):
+        user = sheet.verify_user(student_id, password)
+        if user:
+            st.session_state.logged_in = True
+            st.session_state.student_id = student_id
+            st.session_state.usage_limit = user['답변제한횟수']
+            st.session_state.usage_count = user.get('사용횟수', 0)
+            st.success("로그인 성공")
+        else:
+            st.error("학번 또는 비밀번호가 틀렸습니다.")
+            
+else:
+    # 사용 제한 횟수 체크
+    if st.session_state.usage_count >= st.session_state.usage_limit:
+        st.warning("사용 제한 횟수를 초과했습니다.")
+    else:
+        prompt_type = st.selectbox("프롬프트 유형", ['전반', '교과별'])
+        subject = None
+        if prompt_type == '교과별':
+            subject = st.text_input("교과명 입력 (예: 수학)")
+
+        prompts = sheet.get_prompts(prompt_type, subject)
+
+        question = st.text_input("질문 입력 후 엔터")
+        if question:
+            messages = [{"role": "system", "content": "\n".join(prompts)}, {"role": "user", "content": question}]
+            response = chat_completion_request(messages)
+            answer = response.choices[0].message.content or ""
+            
+            st.markdown(f"**GPT 답변:** {answer}")
+
+            # 사용 횟수 증가 및 로그 저장
+            sheet.increment_usage(st.session_state.student_id)
+            sheet.log_chat(st.session_state.student_id, question, answer, datetime.now().strftime("%Y-%m-%d %H:%M"))
+            st.session_state.usage_count += 1
